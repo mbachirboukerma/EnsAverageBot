@@ -935,6 +935,29 @@ def webhook():
 def index():
     return 'Bot is running!'
 
+# أضف جميع الـ handlers هنا
+conv_handler = ConversationHandler(
+    entry_points=[CommandHandler('start', start)],
+    states={
+        SPECIALIZATION: [MessageHandler(Filters.text & ~Filters.command, choose_specialization)],
+        LEVEL: [MessageHandler(Filters.text & ~Filters.command, choose_level)],
+        SUB_LEVEL: [MessageHandler(Filters.text & ~Filters.command, choose_sub_level)],
+        FIRST: [MessageHandler(Filters.text & ~Filters.command, receive_first_grade)],
+        SECOND: [MessageHandler(Filters.text & ~Filters.command, receive_second_grade)],
+        TP: [MessageHandler(Filters.text & ~Filters.command, receive_tp_grade)],
+        TD: [MessageHandler(Filters.text & ~Filters.command, receive_td_grade)],
+        NEXT_SUBJECT: [MessageHandler(Filters.text & ~Filters.command, receive_subject_average)],
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+dispatcher.add_handler(conv_handler)
+dispatcher.add_handler(CommandHandler("help", help_command))
+dispatcher.add_handler(CommandHandler("visitor_count", visitor_count))
+dispatcher.add_handler(CommandHandler("usage_count", usage_count))
+dispatcher.add_handler(CommandHandler("whatsnew", whatsnew))
+dispatcher.add_handler(CommandHandler("cancel", cancel))
+dispatcher.add_handler(CommandHandler("users", show_user_ids))
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
 
