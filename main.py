@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Constants
 DB_PATH = "bot_database.db"
 CHANNELS = ["@infotouchcommunity", "@hqlaptop"]
-BOT_TOKEN = "7202093679:AAFZFyXONDtl4y74ozJlkMupTDDIPxyA9So"
+BOT_TOKEN = "7202093679:AAE_xjF5I1RvlWRAee8rWv2fB73zyFfYmFs"
 
 # Conversation states
 SPECIALIZATION, LEVEL, SUB_LEVEL, FIRST, SECOND, TP, TD, NEXT_SUBJECT = range(8)
@@ -401,7 +401,7 @@ specializations = {
 }
 
 # --- Webhook Settings (fill these when ready) ---
-WEBHOOK_HOST = "mbachirboukerma.pythonanywhere.com"
+WEBHOOK_HOST = "ens-average-bot-599688285140.europe-west1.run.app"
 WEBHOOK_PORT = 443  # البورت الافتراضي للـ HTTPS
 WEBHOOK_URL_PATH = BOT_TOKEN  # يفضل أن يكون هو نفسه التوكن
 WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{WEBHOOK_URL_PATH}"
