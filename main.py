@@ -916,6 +916,13 @@ bot = Bot(token=BOT_TOKEN)
 bot.setWebhook(WEBHOOK_URL)
 dispatcher = Dispatcher(bot, None, workers=1)
 
+# إرسال رسالة ترحيبية عند بدء التشغيل
+ADMIN_ID = 5909420341
+try:
+    bot.send_message(chat_id=ADMIN_ID, text="✅ Bot has started successfully on Cloud Run!")
+except Exception as e:
+    print(f"Failed to send startup message: {e}")
+
 # نقطة استقبال التحديثات من تيليجرام
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 def webhook():
