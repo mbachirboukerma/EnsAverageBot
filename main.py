@@ -757,6 +757,9 @@ def show_final_average(update: Update, context: CallbackContext) -> int:
 
     # رسالة خاصة إذا كان user_id == 5188065088
     if update.effective_user.id == 5188065088:
+        average = user_data['total_grades'] / user_data['total_coefficients']
+        db.increment_overall_average_count()
+
         average = math.ceil(average * 100) / 100
         update.message.reply_text(f"<b>Your overall average grade is: <span class=\"tg-spoiler\">أحسب وحدك خخخخ</span></b>", parse_mode='HTML')
         update.message.reply_text("<b><span class=\"tg-spoiler\">انت رخيس، اخرج تقود من بوت تاعي</span></b>", parse_mode='HTML')
@@ -995,7 +998,7 @@ dispatcher = Dispatcher(bot, None, workers=1)
 # إرسال رسالة ترحيبية عند بدء التشغيل
 ADMIN_ID = 5909420341
 try:
-    bot.send_message(chat_id=ADMIN_ID, text="راني ندير في تحديث للبوت، اذا قلقك فقط ابلوكيه و استعمل الرئيسي @EnskAverageBot")
+    bot.send_message(chat_id=ADMIN_ID, text="✅ Bot has started successfully on Cloud Run!")
 except Exception as e:
     print(f"Failed to send startup message: {e}")
 
