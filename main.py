@@ -706,13 +706,13 @@ def choose_sub_level(update: Update, context: CallbackContext) -> int:
     spec = SpecializationFactory.get_specialization(user_data['specialization'])
     if not spec:
         update.message.reply_text("Error: Invalid specialization")
-            return ConversationHandler.END
+        return ConversationHandler.END
 
     # Check if the year is supported
     if not spec.is_year_supported(level):
-            update.message.reply_text("لم يتم اضافة هذا التخصص بعد، يرجى الانتظار.")
+        update.message.reply_text("لم يتم اضافة هذا التخصص بعد، يرجى الانتظار.")
         update.message.reply_text("This level is not supported yet. Please wait for upcoming updates.")
-            return ConversationHandler.END
+        return ConversationHandler.END
 
     user_data['level'] = level
     return initialize_grade_calculation(update, context, user_data)
@@ -751,32 +751,32 @@ def show_final_average(update: Update, context: CallbackContext) -> int:
     """Show the final average and end the conversation."""
     user_data = context.user_data
 
-        if user_data['total_coefficients'] == 0:
-            update.message.reply_text("No subjects found for this level.")
-            return ConversationHandler.END
-
-        average = user_data['total_grades'] / user_data['total_coefficients']
-        db.increment_overall_average_count()
-
-        update.message.reply_text("<b>---------------------------------------------</b>", parse_mode='HTML')
-        average = math.ceil(average * 100) / 100
-        update.message.reply_text(f"<b>Your overall average grade is: <span class=\"tg-spoiler\">{average:.2f}</span></b>", parse_mode='HTML')
-
-        if average >= 10.00:
-            update.message.reply_text("<b><span class=\"tg-spoiler\">Congratulations!! YA LKHABACH</span></b>", parse_mode='HTML')
-        else:
-            update.message.reply_text("<b><span class=\"tg-spoiler\">Don't worry, Rana ga3 f rattrapage.</span></b>", parse_mode='HTML')
-
-        update.message.reply_text(
-            "<b>Thank you for using our bot</b>\n\n"
-            "<b>Don't forget to follow us on Instagram & Facebook !!</b>\n\n"
-            "<b>If you want to use the bot again, click /start.</b>\n\n\n"
-            "<b>Developed by <a href=\"https://www.instagram.com/yassine_boukerma\">Yassine Boukerma</a> with ❤️</b>",
-            reply_markup=get_menu_keyboard(),
-            parse_mode='HTML'
-        )
-
+    if user_data['total_coefficients'] == 0:
+        update.message.reply_text("No subjects found for this level.")
         return ConversationHandler.END
+
+    average = user_data['total_grades'] / user_data['total_coefficients']
+    db.increment_overall_average_count()
+
+    update.message.reply_text("<b>---------------------------------------------</b>", parse_mode='HTML')
+    average = math.ceil(average * 100) / 100
+    update.message.reply_text(f"<b>Your overall average grade is: <span class=\"tg-spoiler\">{average:.2f}</span></b>", parse_mode='HTML')
+
+    if average >= 10.00:
+        update.message.reply_text("<b><span class=\"tg-spoiler\">Congratulations!! YA LKHABACH</span></b>", parse_mode='HTML')
+    else:
+        update.message.reply_text("<b><span class=\"tg-spoiler\">Don't worry, Rana ga3 f rattrapage.</span></b>", parse_mode='HTML')
+
+    update.message.reply_text(
+        "<b>Thank you for using our bot</b>\n\n"
+        "<b>Don't forget to follow us on Instagram & Facebook !!</b>\n\n"
+        "<b>If you want to use the bot again, click /start.</b>\n\n\n"
+        "<b>Developed by <a href=\"https://www.instagram.com/yassine_boukerma\">Yassine Boukerma</a> with ❤️</b>",
+        reply_markup=get_menu_keyboard(),
+        parse_mode='HTML'
+    )
+
+    return ConversationHandler.END
 
 def receive_first_grade(update: Update, context: CallbackContext) -> int:
     """Handle the first exam grade input."""
