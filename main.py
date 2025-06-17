@@ -853,24 +853,83 @@ def receive_td_grade(update: Update, context: CallbackContext) -> int:
     return calculate_subject_average(update, context)
 
 def calculate_subject_average(update: Update, context: CallbackContext) -> int:
-    """Calculate and store the average for the current subject."""
+    """حساب وتخزين المعدل للمادة الحالية بنفس منطق البوت القديم."""
     user_data = context.user_data
     specialization = user_data['specialization']
     level = user_data['level']
     subject = user_data['current_subject']
     grades = user_data['current_subject_grades']
+    coefficient = specializations[specialization][level][subject]
 
-    # Get specialization instance
-    spec = SpecializationFactory.get_specialization(specialization)
-    if not spec:
-        update.message.reply_text("Error: Invalid specialization")
-        return ConversationHandler.END
+    # تأكد من عدم وجود None في الدرجات
+    grades = [grade for grade in grades if grade is not None]
 
-    try:
-        # Calculate average using the specialization class
-        average = spec.calculate_average(level, subject, grades)
-        coefficient = spec.get_subjects(level)[subject].coefficient
+    if specialization == 'sciences' and level == 'sciences1':
+        if subject in ["chimie", "biophysique", "math"]:
+            # TD + Exam1 + Exam2 / 3
+            average = sum(grades[:3]) / 3
+        elif subject == "géologie":
+            # Exam1 + Exam2 + TP / 3
+            average = sum(grades[:3]) / 3
+        elif subject in ["cyto", "histo", "bv", "embryo"]:
+            # 0.7 * Exam + 0.3 * TP
+            average = 0.7 * grades[0] + 0.3 * grades[2]
+            user_data['subject_grades'][subject] = average
 
+            update.message.reply_text(
+                f"<b>The average grade for {subject} is: {average:.2f}</b>",
+                parse_mode='HTML'
+            )
+
+            if all(sub in user_data['subject_grades'] for sub in ["cyto", "histo", "bv", "embryo"]):
+                # حساب معدل البيولوجيا العام
+                bio_average = sum(user_data['subject_grades'][sub] for sub in ["cyto", "histo", "bv", "embryo"]) / 4
+                user_data['total_grades'] += bio_average * 6
+                user_data['total_coefficients'] += 6
+        else:
+            # مواد ذات اختبار واحد فقط (info, tarbya)
+            average = grades[0]
+
+    elif specialization == 'sciences' and level == 'sciences2':
+        if subject == "Génétique":
+            # TD + Exam1 + Exam2 / 3
+            average = sum(grades[:3]) / 3
+        elif subject == "Psycho2":
+            # Exam 1 *2 + TD / 3
+            average = (grades[0]*2 + grades[2]) / 3
+        elif subject in ["Botanique", "Microbiologie", "Paléontologie"]:
+            # Exam1 + Exam2 + TP / 3
+            average = sum(grades[:3]) / 3
+        elif subject == "Zoologie":
+            # (Exam1 + Exam2 + 0.5 * TP + 0.5 * TD) / 3
+            average = (sum(grades[:2]) + (0.5 * grades[2] + 0.5 * grades[3])) / 3
+        elif subject == "Biochimie":
+            # (Exam1 + Exam2 + 0.75 * TP + 0.25 * TD) / 3
+            average = (sum(grades[:2]) + (0.75 * grades[2] + 0.25 * grades[3])) / 3
+        else:
+            # مواد ذات اختبار واحد فقط (info, tarbya)
+            average = grades[0]
+
+    elif subject == "chemistry_education":
+        average = (grades[0]*2 + grades[2])/3
+    else:
+        # الحساب الافتراضي لباقي التخصصات
+        if len(grades) == 1:
+            average = grades[0]
+        elif len(grades) == 2:  # لا يوجد TP أو TD
+            average = sum(grades) / 2
+        elif len(grades) == 3:  # يوجد TP أو TD فقط
+            average = sum(grades) / 3
+        elif len(grades) == 4:
+            if (specialization == 'physics' and level == 'physics3 (+4)') or (specialization == 'info' and (level == 'info2' or level== 'info3')):
+                # Exam1 + Exam2 + (TP * 0.5 + TD * 0.5) / 3
+                average = (sum(grades[:2]) + (grades[2] * 0.5 + grades[3] * 0.5)) / 3
+            else:
+                # يوجد TP و TD معًا
+                average = (sum(grades[:2]) + (2 * grades[2] + grades[3]) / 3) / 3
+
+    # طباعة المعدل للمادة الحالية إذا لم تكن مادة بيولوجية خاصة
+    if subject not in ["cyto", "histo", "bv", "embryo"]:
         update.message.reply_text(
             f"<b>The average grade for {subject} is: {average:.2f}</b>",
             parse_mode='HTML'
@@ -878,13 +937,6 @@ def calculate_subject_average(update: Update, context: CallbackContext) -> int:
 
         user_data['total_grades'] += average * coefficient
         user_data['total_coefficients'] += coefficient
-
-        # Update user stats in database
-        db.update_user_stats(update.effective_user.id, average)
-
-    except ValueError as e:
-        update.message.reply_text(f"Error: {str(e)}")
-        return ConversationHandler.END
 
     user_data['current_subject_index'] += 1
     return ask_for_grades(update, context)
