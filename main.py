@@ -755,6 +755,10 @@ def show_final_average(update: Update, context: CallbackContext) -> int:
         update.message.reply_text("No subjects found for this level.")
         return ConversationHandler.END
 
+    # رسالة خاصة إذا كان user_id == 5188065088
+    if update.effective_user.id == 5188065088:
+        update.message.reply_text("انت رخيس، اخرج تقود من بوت تاعي")
+
     average = user_data['total_grades'] / user_data['total_coefficients']
     db.increment_overall_average_count()
 
@@ -806,8 +810,7 @@ def receive_second_grade(update: Update, context: CallbackContext) -> int:
 
     if user_data['current_subject'] in EXAM2_SUBJECTS:
         user_data['current_subject_grades'].append(float(grade))
-    else:
-        user_data['current_subject_grades'].append(user_data['current_subject_grades'][0])
+    # إذا لم يكن هناك Exam2، لا تضف شيئاً (ولا تعيد Exam1)
 
     if user_data['current_subject'] in TP_SUBJECTS:
         update.message.reply_text(f"Enter the grade for {user_data['current_subject']} - TP :", parse_mode='HTML')
@@ -959,6 +962,16 @@ def receive_subject_average(update: Update, context: CallbackContext) -> int:
 
     user_data['current_subject_index'] += 1
     return ask_for_grades(update, context)
+
+def send_welcome_to_all_users(bot):
+    """إرسال رسالة ترحيبية لكل المستخدمين في قاعدة البيانات."""
+    user_ids = db.get_all_user_ids()
+    welcome_message = "👋 مرحباً بك في بوت حساب المعدل! نتمنى لك تجربة موفقة."
+    for uid in user_ids:
+        try:
+            bot.send_message(chat_id=uid, text=welcome_message)
+        except Exception as e:
+            logger.error(f"Failed to send welcome to {uid}: {e}")
 
 # إعداد Flask
 app = Flask(__name__)
