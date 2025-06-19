@@ -9,7 +9,7 @@ WEBHOOK_HOST = os.getenv('WEBHOOK_HOST', 'ens-average-bot-599688285140.europe-we
 ADMIN_ID = int(os.getenv('ADMIN_ID', '5909420341'))
 
 # Database Configuration
-DB_PATH = os.getenv('DB_PATH', 'bot_newdata.db')
+DB_PATH = os.getenv('DB_PATH', 'AverageBotDatabase.db')
 
 # Channels Configuration
 CHANNELS = ["@infotouchcommunity", "@hqlaptop"]
