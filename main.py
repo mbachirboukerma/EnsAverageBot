@@ -889,7 +889,7 @@ def whatsnew(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(MESSAGE_AR_whatsnew, parse_mode='HTML')
 
 # إعدادات البوت و webhook
-BOT_TOKEN = "7163691593:AAFmVnHxBgH4ORZ9ohTC9QQpiDmKjWTaMEI"
+BOT_TOKEN = "7202093679:AAE_xjF5I1RvlWRAee8rWv2fB73zyFfYmFs"
 WEBHOOK_HOST = "ens-average-bot-599688285140.europe-west1.run.app"
 WEBHOOK_URL_PATH = BOT_TOKEN
 WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{WEBHOOK_URL_PATH}"
