@@ -126,8 +126,8 @@ class GradeCalculatorBot:
             )
             return ConversationHandler.END
         
-        # Update visitor count
-        self.db.update_visitor(user_id)
+        # Add visitor if not exists
+        self.db.add_visitor(user_id)
         
         # Check subscription
         if not await self._check_subscription(update, context):
@@ -349,7 +349,7 @@ class GradeCalculatorBot:
             return ConversationHandler.END
         
         average = context.user_data['total_grades'] / context.user_data['total_coefficients']
-        self.db.increment_overall_average_count()
+        self.db.increment_usage_count()
         
         # Format result
         result_text = (
@@ -401,13 +401,13 @@ class GradeCalculatorBot:
     async def stats_command(self, update: Update, context: CallbackContext) -> None:
         """Show bot statistics"""
         visitor_count = self.db.get_visitor_count()
-        usage_count = self.db.get_overall_average_count()
+        usage_count = self.db.get_usage_count()
         uptime = time.time() - self.start_time
         
         stats_text = (
             "📊 <b>Bot Statistics</b>\n\n"
-            f"👥 <b>Total Users:</b> {visitor_count + 600}\n"
-            f"📈 <b>Calculations:</b> {usage_count + 1530}\n"
+            f"👥 <b>Total Users:</b> {visitor_count}\n"
+            f"📈 <b>Calculations:</b> {usage_count}\n"
             f"⏱️ <b>Uptime:</b> {uptime:.1f} seconds\n"
             f"🔄 <b>Requests:</b> {self.request_count}"
         )
@@ -498,6 +498,12 @@ class GradeCalculatorBot:
         """Handle direct subject average input"""
         # Implementation would go here
         return await self._ask_for_grades(update, context)
+    
+    def get_all_user_ids_for_broadcast(self) -> List[int]:
+        return self.db.get_all_user_ids()
+    
+    def remove_user_if_blocked(self, user_id: int):
+        self.db.remove_visitor(user_id)
     
     async def run(self):
         """Run the bot"""
