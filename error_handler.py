@@ -52,4 +52,4 @@ def safe_send_message(bot, chat_id, text, **kwargs):
         return _send()
     except BotError as e:
         logger.error(f"Failed to send message to {chat_id}: {e}")
-        return None 
+        return None
