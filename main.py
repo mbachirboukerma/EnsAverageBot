@@ -371,8 +371,8 @@ specializations = {
             "se 1": 4,
             "si 1": 3,
             "thl": 3,
-            "ts": 3,
-            "analyse numérique": 3,
+            "ts": 2,
+            "analyse numérique": 2,
             "psychologie 'fares'": 2,
             "anglais": 1
         },
