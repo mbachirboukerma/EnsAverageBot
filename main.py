@@ -13,9 +13,7 @@ from contextlib import asynccontextmanager
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
-    Updater, CommandHandler, MessageHandler, Filters, CallbackContext, 
-    ConversationHandler, Application, CommandHandler as NewCommandHandler,
-    MessageHandler as NewMessageHandler, ApplicationBuilder
+    Application, ApplicationBuilder, CommandHandler, MessageHandler, filters, ConversationHandler
 )
 from telegram.error import TimedOut, Unauthorized, ChatMigrated
 from flask import Flask, request
@@ -425,40 +423,40 @@ class GradeCalculatorBot:
         """Setup all command and message handlers"""
         # Conversation handler for grade calculation
         conv_handler = ConversationHandler(
-            entry_points=[NewCommandHandler('start', self.start_command)],
+            entry_points=[CommandHandler('start', self.start_command)],
             states={
                 ConversationStates.SPECIALIZATION: [
-                    NewMessageHandler(Filters.TEXT & ~Filters.COMMAND, self.choose_specialization)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.choose_specialization)
                 ],
                 ConversationStates.LEVEL: [
-                    NewMessageHandler(Filters.TEXT & ~Filters.COMMAND, self.choose_level)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.choose_level)
                 ],
                 ConversationStates.SUB_LEVEL: [
-                    NewMessageHandler(Filters.TEXT & ~Filters.COMMAND, self.choose_sub_level)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.choose_sub_level)
                 ],
                 ConversationStates.FIRST: [
-                    NewMessageHandler(Filters.TEXT & ~Filters.COMMAND, self._receive_first_grade)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self._receive_first_grade)
                 ],
                 ConversationStates.SECOND: [
-                    NewMessageHandler(Filters.TEXT & ~Filters.COMMAND, self._receive_second_grade)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self._receive_second_grade)
                 ],
                 ConversationStates.TP: [
-                    NewMessageHandler(Filters.TEXT & ~Filters.COMMAND, self._receive_tp_grade)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self._receive_tp_grade)
                 ],
                 ConversationStates.TD: [
-                    NewMessageHandler(Filters.TEXT & ~Filters.COMMAND, self._receive_td_grade)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self._receive_td_grade)
                 ],
                 ConversationStates.NEXT_SUBJECT: [
-                    NewMessageHandler(Filters.TEXT & ~Filters.COMMAND, self._receive_subject_average)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self._receive_subject_average)
                 ],
             },
-            fallbacks=[NewCommandHandler('cancel', self.cancel_command)]
+            fallbacks=[CommandHandler('cancel', self.cancel_command)]
         )
         
         self.application.add_handler(conv_handler)
-        self.application.add_handler(NewCommandHandler("help", self.help_command))
-        self.application.add_handler(NewCommandHandler("stats", self.stats_command))
-        self.application.add_handler(NewCommandHandler("whatsnew", self._whatsnew_command))
+        self.application.add_handler(CommandHandler("help", self.help_command))
+        self.application.add_handler(CommandHandler("stats", self.stats_command))
+        self.application.add_handler(CommandHandler("whatsnew", self._whatsnew_command))
     
     async def _whatsnew_command(self, update: Update, context: CallbackContext) -> None:
         """Show what's new"""
