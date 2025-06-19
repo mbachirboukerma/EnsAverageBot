@@ -15,7 +15,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKe
 from telegram.ext import (
     Application, ApplicationBuilder, CommandHandler, MessageHandler, filters, ConversationHandler
 )
-from telegram.error import TimedOut, Unauthorized, ChatMigrated
 from flask import Flask, request
 import threading
 import time
