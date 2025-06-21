@@ -1,39 +1,79 @@
+from telegram import Bot
+from telegram.error import TimedOut, Unauthorized, ChatMigrated
+from retrying import retry
 import logging
-#from telegram.error import TimedOut, Unauthorized, ChatMigrated, NetworkError  # حذف الاستيراد القديم
-from functools import wraps
 import time
+from concurrent.futures import ThreadPoolExecutor
+from database import Database
 
-logger = logging.getLogger(__name__)
+# قائمة القنوات المطلوبة للاشتراك
+CHANNELS = ["@infotouchcommunity", "@hqlaptop"]
 
-class BotError(Exception):
-    """Custom exception for bot errors"""
-    pass
+#MESSAGE TO NOTIFY USERS
+MESSAGE = (
+    "<b>اللهم انصر أهل غزة</b> \n\n"
+    "<b>﴿ إِن يَنصُرْكُمُ اللَّهُ فَلَا غَالِبَ لَكُمْ ﴾ [آل عمران: 160]<b>\n\n"
+    "اللهم كن لإخواننا في غزة، اللهم احفظهم بحفظك، وانصرهم بنصرك، وكن لهم وليًّا ومعينًا.\n"
+    "اللهم اجبر كسرهم، وداوِ جرحهم، وارحم شهداءهم، وطمئن قلوبهم، وكن معهم حيث لا معين إلا أنت.\n\n"
+    "اللهم أرنا في عدوّهم يومًا أسودًا كيوم عاد وثمود.\n"
+    "اللهم اشفِ صدور قومٍ مؤمنين.\n\n"
+    "اللهم انصرهم نصرًا عزيزًا مؤزرًا عاجلًا غير آجل يا رب العالمين.\n\n"
+    "وصلِّ اللهم وسلِّم وبارك على سيدنا محمد وعلى آله وصحبه أجمعين ﷺ."
+)
 
-def handle_telegram_errors(func):
-    """Decorator to handle Telegram API errors"""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"Error in {func.__name__}: {e}")
-                if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)
-                    continue
-                raise BotError(f"An error occurred: {str(e)}")
-        return None
-    return wrapper
+def send_message(bot: Bot, chat_id: int, text: str, db: Database, retries: int = 3):
+    """إرسال رسالة مع إعادة المحاولة عند حدوث أخطاء"""
+    for attempt in range(retries):
+        try:
+            bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
+            logging.info(f"✅ تم إرسال الرسالة إلى المستخدم {chat_id}")
+            return  # تم الإرسال بنجاح، نخرج من الدالة
 
-def safe_send_message(bot, chat_id, text, **kwargs):
-    """Safely send message with error handling"""
-    @handle_telegram_errors
-    def _send():
-        return bot.send_message(chat_id=chat_id, text=text, **kwargs)
-    
+        except Unauthorized:
+            logging.warning(f"User {chat_id} blocked the bot. Removing from database.")
+            db.remove_user_from_database(chat_id)
+            return  # لا داعي لإعادة المحاولة
+
+        except TimedOut:
+            logging.warning(f"Timeout error while sending message to {chat_id}. Retrying...")
+            time.sleep(2)  # انتظار ثم إعادة المحاولة
+
+        except ChatMigrated as e:
+            new_chat_id = e.new_chat_id
+            logging.warning(f"Chat ID {chat_id} has migrated to {new_chat_id}. Updating database.")
+            # db.update_chat_id(chat_id, new_chat_id)  # تحديث معرف الدردشة
+            send_message(bot, new_chat_id, text, db)  # إعادة الإرسال للمعرف الجديد
+            return
+
+        except Exception as e:
+            logging.error(f"Failed to send message to {chat_id} on attempt {attempt+1}: {e}")
+            time.sleep(2)  # انتظار قبل إعادة المحاولة
+
+    logging.error(f"Giving up on sending message to {chat_id} after {retries} retries.")
+
+def notify_users(bot: Bot, db: Database):
+    """إرسال إشعارات لجميع المستخدمين"""
+    user_ids = db.get_all_user_ids()
+    batch_size = 50
+
+    for i in range(0, len(user_ids), batch_size):
+        batch = user_ids[i:i+batch_size]
+        logging.info(f"📤 إرسال دفعة المستخدمين من {i+1} إلى {i+len(batch)}")
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.map(lambda uid: send_message(bot, uid, MESSAGE, db), batch)
+
+        time.sleep(3)  # تأخير 3 ثواني بين كل دفعة
+
+def is_subscribed(update, context) -> bool:
+    """التحقق من اشتراك المستخدم في القنوات المطلوبة"""
+    user_id = update.message.from_user.id
     try:
-        return _send()
-    except BotError as e:
-        logger.error(f"Failed to send message to {chat_id}: {e}")
-        return None 
+        for channel in CHANNELS:
+            chat_member = context.bot.get_chat_member(channel, user_id)
+            if chat_member.status not in ["member", "administrator", "creator"]:
+                return False  # ❌ إذا لم يكن مشتركًا في إحدى القنوات، نعيد False
+        return True  # ✅ المستخدم مشترك في جميع القنوات
+    except Exception as e:
+        logging.error(f"Error checking subscription: {e}")
+        return False  # ❌ أي خطأ يتم اعتباره عدم اشتراك 
