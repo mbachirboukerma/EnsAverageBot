@@ -3,8 +3,8 @@ import os
 import threading
 import time
 from flask import Flask, request
-from telegram import Bot
-from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler
+from telegram import Bot, Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler
 from database import Database
 from error_handler import send_message, notify_users, is_subscribed
 from grade_calculator import (
@@ -27,7 +27,7 @@ db = Database(DB_PATH)
 
 # رسائل what's new
 MESSAGE_whatsnew = (
-    "🎉 <b>New Patch Released! 21400000 new</b> 🎉\n\n"
+    "🎉 <b>New Patch Released!</b> 🎉\n\n"
     "Hello everyone! We're excited to announce a new update to the Grade Calculator Bot. Here's what's new:\n\n"
     "1. <b>We have added new levels</b>:Physics3 (+4), Science3 (+4) , science3 (+5), Math - Fourth Year (+5) and Sciences - Second Year.\n"
     "2. <b>Visitor Count</b>: You can now see how many unique users have visited the bot with the command /visitor_count.\n"
@@ -41,7 +41,7 @@ MESSAGE_whatsnew = (
 )
 
 MESSAGE_AR_whatsnew = (
-    "🎉 <b>تحديث جديد تم إصدارlflmfk,l,slkf,sdklf,klه!</b> 🎉\n\n"
+    "🎉 <b> tststsتحديث جديد تم إصداره!</b> 🎉\n\n"
     "مرحبًا بالجميع! نحن متحمسون للإعلان عن تحديث جديد لبوت حساب المعدل بالنسبة لجميع التخصصات بالمدرسة العليا للأساتذة _ القبة. إليكم ما هو جديد:\n\n"
     "1. <b>مستويات جديدة</b>: لقد أضفنا المستويات: فيزياء - السنة الثالثة (+4)، علوم - السنة الثالثة (+4)، علوم - السنة الثالثة (+5)، الرياضيات - السنة الرابعة (+5) وعلوم - السنة الثانية.\n"
     "2. <b>عدد الزوار</b>: يمكنك الآن رؤية عدد المستخدمين الذين زاروا الروبوت باستخدام الأمر /visitor_count.\n"
@@ -99,7 +99,6 @@ WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{WEBHOOK_URL_PATH}"
 
 app = Flask(__name__)
 bot = Bot(token=BOT_TOKEN)
-dispatcher = Dispatcher(bot, None, workers=4, use_context=True)
 
 ADMIN_ID = 5909420341
 try:
@@ -110,6 +109,10 @@ except Exception as e:
 def main():
     global db
     db = Database(DB_PATH)
+
+    # إنشاء Updater بدلاً من Dispatcher
+    updater = Updater(token=BOT_TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', lambda update, context: start(update, context, db))],
@@ -132,13 +135,16 @@ def main():
     dispatcher.add_handler(CommandHandler("showUserIDs", show_user_ids))
     dispatcher.add_handler(CommandHandler("whats_new", whatsnew))
 
+    # تعيين webhook
     bot.set_webhook(url=WEBHOOK_URL)
     print(f"Webhook set to: {WEBHOOK_URL}")
 
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 def webhook():
     update = Update.de_json(request.get_json(force=True), bot)
-    dispatcher.process_update(update)
+    # استخدام updater بدلاً من dispatcher مباشرة
+    updater = Updater(token=BOT_TOKEN, use_context=True)
+    updater.dispatcher.process_update(update)
     return 'ok'
 
 @app.route('/')
