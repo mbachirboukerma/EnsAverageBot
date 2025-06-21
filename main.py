@@ -27,7 +27,7 @@ db = Database(DB_PATH)
 
 # رسائل what's new
 MESSAGE_whatsnew = (
-    "🎉 <b>New Patch Released!</b> 🎉\n\n"
+    "🎉 <b>New Patch Released! 21400000 new</b> 🎉\n\n"
     "Hello everyone! We're excited to announce a new update to the Grade Calculator Bot. Here's what's new:\n\n"
     "1. <b>We have added new levels</b>:Physics3 (+4), Science3 (+4) , science3 (+5), Math - Fourth Year (+5) and Sciences - Second Year.\n"
     "2. <b>Visitor Count</b>: You can now see how many unique users have visited the bot with the command /visitor_count.\n"
@@ -41,7 +41,7 @@ MESSAGE_whatsnew = (
 )
 
 MESSAGE_AR_whatsnew = (
-    "🎉 <b>تحديث جديد تم إصداره!</b> 🎉\n\n"
+    "🎉 <b>تحديث جديد تم إصدارlflmfk,l,slkf,sdklf,klه!</b> 🎉\n\n"
     "مرحبًا بالجميع! نحن متحمسون للإعلان عن تحديث جديد لبوت حساب المعدل بالنسبة لجميع التخصصات بالمدرسة العليا للأساتذة _ القبة. إليكم ما هو جديد:\n\n"
     "1. <b>مستويات جديدة</b>: لقد أضفنا المستويات: فيزياء - السنة الثالثة (+4)، علوم - السنة الثالثة (+4)، علوم - السنة الثالثة (+5)، الرياضيات - السنة الرابعة (+5) وعلوم - السنة الثانية.\n"
     "2. <b>عدد الزوار</b>: يمكنك الآن رؤية عدد المستخدمين الذين زاروا الروبوت باستخدام الأمر /visitor_count.\n"
