@@ -14,5 +14,5 @@ COPY . .
 # الأمر لتشغيل uvicorn
 # سيقوم بتشغيل الكائن 'application' من ملف 'main.py'
 # سيستمع على جميع الواجهات على المنفذ المحدد من PORT أو 8080
-# استخدام python -m يضمن إيجاد uvicorn دائمًا
-CMD ["python", "-m", "uvicorn", "main:application", "--host", "0.0.0.0", "--port", "8080"] 
+# استخدام المسار الكامل لـ python يحل مشاكل PATH
+CMD ["/usr/local/bin/python", "-m", "uvicorn", "main:application", "--host", "0.0.0.0", "--port", "8080"] 
