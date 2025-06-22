@@ -34,25 +34,16 @@ logger = logging.getLogger(__name__)
 # 2. تعريف الثوابت
 SPECIALIZATION, LEVEL, SUB_LEVEL, FIRST, SECOND, TP, TD, NEXT_SUBJECT = range(8)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "7163691593:AAFmVnHxBgH4ORZ9ohTC9QQpiDmKjWTaMEI")
-PORT = int(os.environ.get("PORT", 8080))
 WEBHOOK_HOST = os.environ.get("WEBHOOK_HOST", "ens-average-bot-599688285140.europe-west1.run.app")
 WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{BOT_TOKEN}"
 
-# 3. تهيئة قاعدة البيانات والتطبيق
+# 3. تهيئة قاعدة البيانات
 db = Database("bot_newdata.db")
-application = (
-    Application.builder()
-    .token(BOT_TOKEN)
-    .read_timeout(30)
-    .write_timeout(30)
-    .webhook_url(WEBHOOK_URL)
-    .build()
-)
-bot = application.bot
+
 
 # --- دوال الأوامر ---
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📚 <b>Here are the instructions: 21032025</b>\n\n1. Click <b>/start</b> to begin using the bot.\n2. Follow the prompts to enter your grades.\n3. Make sure to enter valid grades between 0 and 20.\n4. Click <b>/cancel</b> if you want to stop the bot.\n5. To restart, first click <b>/cancel</b> then <b>/start</b>.", parse_mode='HTML')
+    await update.message.reply_text("📚 <b>Here are the instructions:</b>\n\n1. Click <b>/start</b> to begin.\n2. Follow the prompts to enter your grades.\n3. Click <b>/cancel</b> to stop.", parse_mode='HTML')
 
 async def visitor_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     count = db.get_visitor_count()
@@ -70,7 +61,35 @@ async def whatsnew(update: Update, context: ContextTypes.DEFAULT_TYPE):
     MESSAGE_whatsnew = "🎉 <b>New Patch Released!</b> 🎉\n\nHello everyone! We're excited to announce a new update..."
     await update.message.reply_text(MESSAGE_whatsnew, parse_mode='HTML')
 
-# 4. إعداد معالجات الأوامر والمحادثة
+
+async def post_init(application: Application) -> None:
+    """
+    دالة يتم تشغيلها بعد تهيئة التطبيق وقبل بدء تشغيل الخادم.
+    تستخدم لضبط الـ webhook وإرسال رسالة بدء التشغيل.
+    """
+    logger.info("Setting webhook...")
+    await application.bot.set_webhook(url=WEBHOOK_URL, allowed_updates=Update.ALL_TYPES)
+    logger.info("Webhook is set.")
+    
+    # Send startup message
+    ADMIN_ID = 5909420341
+    try:
+        await application.bot.send_message(chat_id=ADMIN_ID, text=f"✅ Bot started successfully (post_init model).")
+    except Exception as e:
+        logger.warning(f"Failed to send startup message: {e}")
+
+# 4. بناء التطبيق وتمرير دالة الإعداد
+application = (
+    Application.builder()
+    .token(BOT_TOKEN)
+    .post_init(post_init)
+    .build()
+)
+
+# 5. هذا المتغير مطلوب للملفات الأخرى التي تقوم باستيراده
+bot = application.bot
+
+# 6. إضافة معالجات الأوامر والمحادثة
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -92,26 +111,6 @@ application.add_handler(CommandHandler("usage_count", overall_average_count))
 application.add_handler(CommandHandler("showUserIDs", show_user_ids))
 application.add_handler(CommandHandler("whats_new", whatsnew))
 
-
-# 5. دالة بدء التشغيل الرئيسية
-async def main():
-    logger.info("Setting webhook...")
-    await bot.set_webhook(url=WEBHOOK_URL, allowed_updates=Update.ALL_TYPES)
-    logger.info("Webhook is set.")
-    
-    # Send startup message
-    ADMIN_ID = 5909420341
-    try:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Bot started successfully on port {PORT}")
-    except Exception as e:
-        logger.warning(f"Failed to send startup message: {e}")
-    
-    logger.info("Starting Uvicorn server...")
-    # The uvicorn command will run this application object
-    # No need to run flask or anything else here.
-
-if __name__ == "__main__":
-    asyncio.run(main())
-    # Uvicorn will be started from the Dockerfile's CMD
-    # e.g., uvicorn main:application --host 0.0.0.0 --port 8080
+# الكائن `application` هو ما سيقوم `uvicorn` بتشغيله.
+# لا حاجة لوجود `if __name__ == "__main__"`.
 
