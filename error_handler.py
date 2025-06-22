@@ -1,83 +1,61 @@
-from telegram import Bot
-from telegram.error import TimedOut, Forbidden, ChatMigrated
-from retrying import retry
+from telegram import Update, Bot
+from telegram.ext import ContextTypes
+from telegram.error import Forbidden, BadRequest
 import logging
-import time
-from concurrent.futures import ThreadPoolExecutor
-from database import Database
-import asyncio
 
-# قائمة القنوات المطلوبة للاشتراك
-CHANNELS = ["@infotouchcommunity", "@hqlaptop"]
+# قائمة القنوات
+CHANNELS = ["@HQLaptop", "@EnsBot"]
+logger = logging.getLogger(__name__)
 
-#MESSAGE TO NOTIFY USERS
-MESSAGE = (
-    "<b>اللهم انصر أهل غزة</b> \n\n"
-    "<b>﴿ إِن يَنصُرْكُمُ اللَّهُ فَلَا غَالِبَ لَكُمْ ﴾ [آل عمران: 160]<b>\n\n"
-    "اللهم كن لإخواننا في غزة، اللهم احفظهم بحفظك، وانصرهم بنصرك، وكن لهم وليًّا ومعينًا.\n"
-    "اللهم اجبر كسرهم، وداوِ جرحهم، وارحم شهداءهم، وطمئن قلوبهم، وكن معهم حيث لا معين إلا أنت.\n\n"
-    "اللهم أرنا في عدوّهم يومًا أسودًا كيوم عاد وثمود.\n"
-    "اللهم اشفِ صدور قومٍ مؤمنين.\n\n"
-    "اللهم انصرهم نصرًا عزيزًا مؤزرًا عاجلًا غير آجل يا رب العالمين.\n\n"
-    "وصلِّ اللهم وسلِّم وبارك على سيدنا محمد وعلى آله وصحبه أجمعين ﷺ."
-)
-
-async def send_message(chat_id: int, text: str, retries: int = 3):
-    """إرسال رسالة مع إعادة المحاولة عند حدوث أخطاء"""
-    from main import bot, db
-    for attempt in range(retries):
-        try:
-            await bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
-            logging.info(f"✅ تم إرسال الرسالة إلى المستخدم {chat_id}")
-            return  # تم الإرسال بنجاح، نخرج من الدالة
-
-        except Forbidden:
-            logging.warning(f"User {chat_id} blocked the bot. Removing from database.")
-            db.remove_user_from_database(chat_id)
-            return  # لا داعي لإعادة المحاولة
-
-        except TimedOut:
-            logging.warning(f"Timeout error while sending message to {chat_id}. Retrying...")
-            await asyncio.sleep(2)  # انتظار ثم إعادة المحاولة
-
-        except ChatMigrated as e:
-            new_chat_id = e.new_chat_id
-            logging.warning(f"Chat ID {chat_id} has migrated to {new_chat_id}. Updating database.")
-            # db.update_chat_id(chat_id, new_chat_id)  # تحديث معرف الدردشة
-            await send_message(new_chat_id, text)  # إعادة الإرسال للمعرف الجديد
-            return
-
-        except Exception as e:
-            logging.error(f"Failed to send message to {chat_id} on attempt {attempt+1}: {e}")
-            await asyncio.sleep(2)  # انتظار قبل إعادة المحاولة
-
-    logging.error(f"Giving up on sending message to {chat_id} after {retries} retries.")
-
-async def notify_users():
-    """إرسال إشعارات لجميع المستخدمين"""
-    from main import bot, db
-    user_ids = db.get_all_user_ids()
-    batch_size = 50
-
-    for i in range(0, len(user_ids), batch_size):
-        batch = user_ids[i:i+batch_size]
-        logging.info(f"📤 إرسال دفعة المستخدمين من {i+1} إلى {i+len(batch)}")
-
-        # استخدام asyncio.gather بدلاً من ThreadPoolExecutor
-        tasks = [send_message(uid, MESSAGE) for uid in batch]
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-        await asyncio.sleep(3)  # تأخير 3 ثواني بين كل دفعة
-
-async def is_subscribed(update, context) -> bool:
-    """التحقق من اشتراك المستخدم في القنوات المطلوبة"""
+async def is_subscribed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """التحقق مما إذا كان المستخدم مشتركًا في القنوات المطلوبة."""
     user_id = update.message.from_user.id
+    # Get the bot instance from the context
+    bot = context.bot
+    
     try:
-        for channel in CHANNELS:
-            chat_member = await context.bot.get_chat_member(channel, user_id)
-            if chat_member.status not in ["member", "administrator", "creator"]:
-                return False  # ❌ إذا لم يكن مشتركًا في إحدى القنوات، نعيد False
-        return True  # ✅ المستخدم مشترك في جميع القنوات
+        # التحقق من الاشتراك في القناة الأولى
+        member1 = await bot.get_chat_member(chat_id=CHANNELS[0], user_id=user_id)
+        if member1.status not in ['member', 'administrator', 'creator']:
+            logger.warning(f"User {user_id} not in {CHANNELS[0]}")
+            return False
+
+        # التحقق من الاشتراك في القناة الثانية
+        member2 = await bot.get_chat_member(chat_id=CHANNELS[1], user_id=user_id)
+        if member2.status not in ['member', 'administrator', 'creator']:
+            logger.warning(f"User {user_id} not in {CHANNELS[1]}")
+            return False
+            
+    except BadRequest as e:
+        if "user not found" in e.message.lower():
+            logger.warning(f"User {user_id} not found in one of the channels (BadRequest).")
+            return False
+        else:
+            logger.error(f"A BadRequest occurred for user {user_id}: {e}")
+            await update.message.reply_text("An error occurred. Please try again later.")
+            return False # أو يمكنك التعامل معها بطريقة أخرى
+            
     except Exception as e:
-        logging.error(f"Error checking subscription: {e}")
-        return False  # ❌ أي خطأ يتم اعتباره عدم اشتراك 
+        logger.error(f"An unexpected error occurred in is_subscribed for user {user_id}: {e}")
+        await update.message.reply_text("An unexpected error occurred. Please contact support.")
+        return False
+        
+    return True
+
+async def notify_users(context: ContextTypes.DEFAULT_TYPE):
+    """إرسال إشعارات للمستخدمين."""
+    # Get db and bot from the context
+    db = context.db
+    bot = context.bot
+    
+    user_ids = db.get_all_user_ids()
+    message = "🎉 **New Patch Release!** 🎉\n\nHello everyone! We're excited to announce a new update..."
+    
+    for user_id in user_ids:
+        try:
+            await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
+        except Forbidden:
+            logger.warning(f"User {user_id} has blocked the bot. Removing from the database.")
+            db.remove_user(user_id)
+        except Exception as e:
+            logger.error(f"Failed to send message to user {user_id}: {e}") 
