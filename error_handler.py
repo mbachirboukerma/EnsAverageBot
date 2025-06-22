@@ -4,7 +4,7 @@ from telegram.error import Forbidden, BadRequest
 import logging
 
 # قائمة القنوات
-CHANNELS = ["@HQLaptop", "@EnsBot"]
+CHANNELS = ["@HQLaptop", "@infotouchcommunity"]
 logger = logging.getLogger(__name__)
 
 async def is_subscribed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
