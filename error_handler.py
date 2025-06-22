@@ -22,8 +22,9 @@ MESSAGE = (
     "وصلِّ اللهم وسلِّم وبارك على سيدنا محمد وعلى آله وصحبه أجمعين ﷺ."
 )
 
-async def send_message(bot: Bot, chat_id: int, text: str, db: Database, retries: int = 3):
+async def send_message(chat_id: int, text: str, retries: int = 3):
     """إرسال رسالة مع إعادة المحاولة عند حدوث أخطاء"""
+    from main import bot, db
     for attempt in range(retries):
         try:
             await bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
@@ -43,7 +44,7 @@ async def send_message(bot: Bot, chat_id: int, text: str, db: Database, retries:
             new_chat_id = e.new_chat_id
             logging.warning(f"Chat ID {chat_id} has migrated to {new_chat_id}. Updating database.")
             # db.update_chat_id(chat_id, new_chat_id)  # تحديث معرف الدردشة
-            await send_message(bot, new_chat_id, text, db)  # إعادة الإرسال للمعرف الجديد
+            await send_message(new_chat_id, text)  # إعادة الإرسال للمعرف الجديد
             return
 
         except Exception as e:
@@ -52,8 +53,9 @@ async def send_message(bot: Bot, chat_id: int, text: str, db: Database, retries:
 
     logging.error(f"Giving up on sending message to {chat_id} after {retries} retries.")
 
-async def notify_users(bot: Bot, db: Database):
+async def notify_users():
     """إرسال إشعارات لجميع المستخدمين"""
+    from main import bot, db
     user_ids = db.get_all_user_ids()
     batch_size = 50
 
@@ -62,7 +64,7 @@ async def notify_users(bot: Bot, db: Database):
         logging.info(f"📤 إرسال دفعة المستخدمين من {i+1} إلى {i+len(batch)}")
 
         # استخدام asyncio.gather بدلاً من ThreadPoolExecutor
-        tasks = [send_message(bot, uid, MESSAGE, db) for uid in batch]
+        tasks = [send_message(uid, MESSAGE) for uid in batch]
         await asyncio.gather(*tasks, return_exceptions=True)
 
         await asyncio.sleep(3)  # تأخير 3 ثواني بين كل دفعة
