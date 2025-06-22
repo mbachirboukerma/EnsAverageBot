@@ -11,5 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # نسخ جميع ملفات المشروع
 COPY . .
 
-# تحديد الأمر الافتراضي لتشغيل البوت
-CMD ["python", "main.py"] 
+# الأمر لتشغيل uvicorn
+# سيقوم بتشغيل الكائن 'application' من ملف 'main.py'
+# سيستمع على جميع الواجهات على المنفذ المحدد من PORT أو 8080
+CMD ["uvicorn", "main:application", "--host", "0.0.0.0", "--port", "8080"] 
