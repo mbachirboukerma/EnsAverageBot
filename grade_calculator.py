@@ -26,9 +26,10 @@ def get_menu_keyboard():
     ])
 
 @retry(wait_fixed=2000, stop_max_attempt_number=5, retry_on_exception=lambda x: isinstance(x, TimedOut))
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, db) -> int:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """بدء البوت والتحقق من الاشتراك"""
     from error_handler import is_subscribed, CHANNELS
+    from main import db
     
     user_id = update.message.from_user.id
     db.update_visitors(user_id)
@@ -66,6 +67,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, db) -> int:
         "If you need any help, type /help. To cancel the process at any time, type /cancel.",
         reply_markup=reply_markup,
     )
+    user_data = context.user_data
+    user_data['total_grades'] = 0
+    user_data['total_coefficients'] = 0
     return SPECIALIZATION
 
 async def choose_specialization(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -125,10 +129,7 @@ async def choose_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     user_data['level'] = level
     user_data['current_subject_index'] = 0
     user_data['subject_grades'] = {}
-    user_data['total_grades'] = 0
-    user_data['total_coefficients'] = 0
-
-    return await ask_for_grades(update, context, db)
+    return await ask_for_grades(update, context)
 
 async def choose_sub_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """اختيار المستوى الفرعي"""
@@ -161,10 +162,11 @@ async def choose_sub_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user_data['total_grades'] = 0
     user_data['total_coefficients'] = 0
 
-    return await ask_for_grades(update, context, db)
+    return await ask_for_grades(update, context)
 
-async def ask_for_grades(update: Update, context: ContextTypes.DEFAULT_TYPE, db) -> int:
+async def ask_for_grades(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """طلب الدرجات من المستخدم"""
+    from main import db
     user_data = context.user_data
     specialization = user_data['specialization']
     level = user_data['level']
@@ -270,7 +272,7 @@ async def receive_first_grade(update: Update, context: ContextTypes.DEFAULT_TYPE
         user_data['total_grades'] += grade * coefficient
         user_data['total_coefficients'] += coefficient
         user_data['current_subject_index'] += 1
-        return await ask_for_grades(update, context, None)
+        return await ask_for_grades(update, context)
 
 async def receive_second_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """استقبال الدرجة الثانية"""
@@ -296,7 +298,7 @@ async def receive_second_grade(update: Update, context: ContextTypes.DEFAULT_TYP
     user_data['total_coefficients'] += coefficient
     user_data['current_subject_index'] += 1
     
-    return await ask_for_grades(update, context, None)
+    return await ask_for_grades(update, context)
 
 async def receive_tp_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """استقبال درجة TP"""
@@ -319,7 +321,7 @@ async def receive_tp_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user_data['total_coefficients'] += coefficient
     user_data['current_subject_index'] += 1
     
-    return await ask_for_grades(update, context, None)
+    return await ask_for_grades(update, context)
 
 async def receive_td_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """استقبال درجة TD"""
@@ -342,7 +344,7 @@ async def receive_td_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user_data['total_coefficients'] += coefficient
     user_data['current_subject_index'] += 1
     
-    return await ask_for_grades(update, context, None)
+    return await ask_for_grades(update, context)
 
 async def calculate_subject_average(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """حساب متوسط المادة"""
@@ -365,7 +367,7 @@ async def calculate_subject_average(update: Update, context: ContextTypes.DEFAUL
     user_data['total_coefficients'] += coefficient
     user_data['current_subject_index'] += 1
     
-    return await ask_for_grades(update, context, None)
+    return await ask_for_grades(update, context)
 
 async def receive_subject_average(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """استقبال متوسط المادة"""
