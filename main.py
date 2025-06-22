@@ -4,7 +4,7 @@ import threading
 import time
 from flask import Flask, request
 from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext, ConversationHandler
 from database import Database
 from error_handler import send_message, notify_users, is_subscribed
 from grade_calculator import (
@@ -41,7 +41,7 @@ MESSAGE_whatsnew = (
 )
 
 MESSAGE_AR_whatsnew = (
-    "🎉 <b> tststsتحديث جديد تم إصداره!</b> 🎉\n\n"
+    "🎉 <b>تحديث جديد تم إصداره!</b> 🎉\n\n"
     "مرحبًا بالجميع! نحن متحمسون للإعلان عن تحديث جديد لبوت حساب المعدل بالنسبة لجميع التخصصات بالمدرسة العليا للأساتذة _ القبة. إليكم ما هو جديد:\n\n"
     "1. <b>مستويات جديدة</b>: لقد أضفنا المستويات: فيزياء - السنة الثالثة (+4)، علوم - السنة الثالثة (+4)، علوم - السنة الثالثة (+5)، الرياضيات - السنة الرابعة (+5) وعلوم - السنة الثانية.\n"
     "2. <b>عدد الزوار</b>: يمكنك الآن رؤية عدد المستخدمين الذين زاروا الروبوت باستخدام الأمر /visitor_count.\n"
@@ -117,14 +117,14 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', lambda update, context: start(update, context, db))],
         states={
-            SPECIALIZATION: [MessageHandler(Filters.text & ~Filters.command, choose_specialization)],
-            LEVEL: [MessageHandler(Filters.text & ~Filters.command, choose_level)],
-            SUB_LEVEL: [MessageHandler(Filters.text & ~Filters.command, choose_sub_level)],
-            FIRST: [MessageHandler(Filters.text & ~Filters.command, receive_first_grade)],
-            SECOND: [MessageHandler(Filters.text & ~Filters.command, receive_second_grade)],
-            TP: [MessageHandler(Filters.text & ~Filters.command, receive_tp_grade)],
-            TD: [MessageHandler(Filters.text & ~Filters.command, receive_td_grade)],
-            NEXT_SUBJECT: [MessageHandler(Filters.text & ~Filters.command, receive_subject_average)],
+            SPECIALIZATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_specialization)],
+            LEVEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_level)],
+            SUB_LEVEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_sub_level)],
+            FIRST: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_first_grade)],
+            SECOND: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_second_grade)],
+            TP: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_tp_grade)],
+            TD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_td_grade)],
+            NEXT_SUBJECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_subject_average)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
