@@ -1,8 +1,6 @@
 import logging
 import os
 import asyncio
-import threading
-from flask import Flask, request
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -26,7 +24,6 @@ from grade_calculator import (
     receive_subject_average,
     cancel,
 )
-from specializations import *
 
 # 1. إعداد اللوجر
 logging.basicConfig(
@@ -36,18 +33,26 @@ logger = logging.getLogger(__name__)
 
 # 2. تعريف الثوابت
 SPECIALIZATION, LEVEL, SUB_LEVEL, FIRST, SECOND, TP, TD, NEXT_SUBJECT = range(8)
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "7202093679:AAE_xjF5I1RvlWRAee8rWv2fB73zyFfYmFs")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "7163691593:AAFmVnHxBgH4ORZ9ohTC9QQpiDmKjWTaMEI")
+PORT = int(os.environ.get("PORT", 8080))
 WEBHOOK_HOST = os.environ.get("WEBHOOK_HOST", "ens-average-bot-599688285140.europe-west1.run.app")
 WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{BOT_TOKEN}"
 
-# 3. تهيئة قاعدة البيانات والبوت والتطبيق في النطاق العام
+# 3. تهيئة قاعدة البيانات والتطبيق
 db = Database("bot_newdata.db")
-application = Application.builder().token(BOT_TOKEN).build()
-bot = application.bot  # الحصول على كائن البوت من التطبيق
+application = (
+    Application.builder()
+    .token(BOT_TOKEN)
+    .read_timeout(30)
+    .write_timeout(30)
+    .webhook_url(WEBHOOK_URL)
+    .build()
+)
+bot = application.bot
 
 # --- دوال الأوامر ---
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Use /start to test this bot.")
+    await update.message.reply_text("📚 <b>Here are the instructions: 21032025</b>\n\n1. Click <b>/start</b> to begin using the bot.\n2. Follow the prompts to enter your grades.\n3. Make sure to enter valid grades between 0 and 20.\n4. Click <b>/cancel</b> if you want to stop the bot.\n5. To restart, first click <b>/cancel</b> then <b>/start</b>.", parse_mode='HTML')
 
 async def visitor_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     count = db.get_visitor_count()
@@ -62,11 +67,10 @@ async def show_user_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Collected user IDs: {', '.join(map(str, user_ids))}")
 
 async def whatsnew(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    MESSAGE_whatsnew = "..."  # أضف رسالتك هنا
+    MESSAGE_whatsnew = "🎉 <b>New Patch Released!</b> 🎉\n\nHello everyone! We're excited to announce a new update..."
     await update.message.reply_text(MESSAGE_whatsnew, parse_mode='HTML')
 
-
-# 4. إعداد معالج المحادثة وجميع المعالجات الأخرى
+# 4. إعداد معالجات الأوامر والمحادثة
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -89,54 +93,25 @@ application.add_handler(CommandHandler("showUserIDs", show_user_ids))
 application.add_handler(CommandHandler("whats_new", whatsnew))
 
 
-# 5. تهيئة تطبيق Flask
-app = Flask(__name__)
-
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
-async def webhook():
-    try:
-        update = Update.de_json(await request.get_json(force=True), bot)
-        await application.process_update(update)
-        return "ok"
-    except Exception as e:
-        logger.error(f"Error in webhook: {e}")
-        return "error", 500
-
-@app.route("/")
-def index():
-    return "Bot is running!"
-
-@app.route("/health")
-def health():
-    return "OK", 200
-
-
-# 6. دالة الإعداد والتشغيل
-async def setup():
-    """إعداد وتشغيل البوت"""
-    logger.info("Starting setup...")
-    await application.initialize()
-    if not await bot.set_webhook(url=WEBHOOK_URL):
-        logger.error("Failed to set webhook")
-    logger.info(f"Webhook set to {WEBHOOK_URL}")
+# 5. دالة بدء التشغيل الرئيسية
+async def main():
+    logger.info("Setting webhook...")
+    await bot.set_webhook(url=WEBHOOK_URL, allowed_updates=Update.ALL_TYPES)
+    logger.info("Webhook is set.")
+    
+    # Send startup message
     ADMIN_ID = 5909420341
     try:
-        await bot.send_message(chat_id=ADMIN_ID, text="✅ Bot has started successfully on Cloud Run!")
+        await bot.send_message(chat_id=ADMIN_ID, text=f"✅ Bot started successfully on port {PORT}")
     except Exception as e:
         logger.warning(f"Failed to send startup message: {e}")
-
-    # تشغيل تطبيق Flask في thread منفصل
-    flask_thread = threading.Thread(
-        target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), use_reloader=False)
-    )
-    flask_thread.start()
-    logger.info("Flask app started in a separate thread.")
-
-    # إبقاء الـ application يعمل
-    async with application:
-        await application.start()
-
+    
+    logger.info("Starting Uvicorn server...")
+    # The uvicorn command will run this application object
+    # No need to run flask or anything else here.
 
 if __name__ == "__main__":
-    asyncio.run(setup())
+    asyncio.run(main())
+    # Uvicorn will be started from the Dockerfile's CMD
+    # e.g., uvicorn main:application --host 0.0.0.0 --port 8080
 
