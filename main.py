@@ -9,6 +9,8 @@ from telegram.ext import (
     MessageHandler,
     ContextTypes,
     filters,
+    BasePersistence,
+    PicklePersistence,
 )
 from database import Database
 from error_handler import notify_users, is_subscribed
@@ -37,59 +39,58 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "7202093679:AAE_xjF5I1RvlWRAee8rWv2fB73z
 WEBHOOK_HOST = os.environ.get("WEBHOOK_HOST", "ens-average-bot-599688285140.europe-west1.run.app")
 WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{BOT_TOKEN}"
 
-# 3. تهيئة قاعدة البيانات
-db = Database("bot_newdata.db")
+# 3. Custom Context & Database
+class CustomContext(ContextTypes.DEFAULT_TYPE):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.db = Database("bot_newdata.db")
 
+context_types = ContextTypes(context=CustomContext)
 
 # --- دوال الأوامر ---
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help_command(update: Update, context: CustomContext):
     await update.message.reply_text("📚 <b>Here are the instructions:</b>\n\n1. Click <b>/start</b> to begin.\n2. Follow the prompts to enter your grades.\n3. Click <b>/cancel</b> to stop.", parse_mode='HTML')
 
-async def visitor_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    count = db.get_visitor_count()
+async def visitor_count(update: Update, context: CustomContext):
+    count = context.db.get_visitor_count()
     await update.message.reply_text(f"The bot has been visited by {count + 600} unique users.")
 
-async def overall_average_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    count = db.get_overall_average_count()
+async def overall_average_count(update: Update, context: CustomContext):
+    count = context.db.get_overall_average_count()
     await update.message.reply_text(f"The Bot has been used {count + 1530} times.")
 
-async def show_user_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_ids = db.get_all_user_ids()
+async def show_user_ids(update: Update, context: CustomContext):
+    user_ids = context.db.get_all_user_ids()
     await update.message.reply_text(f"Collected user IDs: {', '.join(map(str, user_ids))}")
 
-async def whatsnew(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def whatsnew(update: Update, context: CustomContext):
     MESSAGE_whatsnew = "🎉 <b>New Patch Released!</b> 🎉\n\nHello everyone! We're excited to announce a new update..."
     await update.message.reply_text(MESSAGE_whatsnew, parse_mode='HTML')
 
 
-async def post_init(application: Application) -> None:
+async def on_startup(application: Application):
     """
-    دالة يتم تشغيلها بعد تهيئة التطبيق وقبل بدء تشغيل الخادم.
-    تستخدم لضبط الـ webhook وإرسال رسالة بدء التشغيل.
+    دالة يتم تشغيلها عند بدء تشغيل الخادم لإرسال رسالة تأكيد.
     """
-    logger.info("Setting webhook...")
-    await application.bot.set_webhook(url=WEBHOOK_URL, allowed_updates=Update.ALL_TYPES)
-    logger.info("Webhook is set.")
-    
-    # Send startup message
     ADMIN_ID = 5909420341
+    startup_message = "✅ Bot has started successfully on Cloud Run!"
+    logger.info(f"Attempting to send startup message to admin {ADMIN_ID}")
     try:
-        await application.bot.send_message(chat_id=ADMIN_ID, text=f"✅ Bot started successfully (post_init model).")
-    except Exception as e:
-        logger.warning(f"Failed to send startup message: {e}")
+        await application.bot.send_message(chat_id=ADMIN_ID, text=startup_message)
+        logger.info("--- Startup message sent successfully ---")
+    except Exception:
+        logger.error("!!! An error occurred on startup sending message !!!", exc_info=True)
 
-# 4. بناء التطبيق وتمرير دالة الإعداد
+
+# 4. بناء التطبيق
 application = (
     Application.builder()
     .token(BOT_TOKEN)
-    .post_init(post_init)
+    .context_types(context_types)
     .build()
 )
 
-# 5. هذا المتغير مطلوب للملفات الأخرى التي تقوم باستيراده
-bot = application.bot
-
-# 6. إضافة معالجات الأوامر والمحادثة
+# 5. إضافة معالجات الأوامر والمحادثة
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -103,6 +104,8 @@ conv_handler = ConversationHandler(
         NEXT_SUBJECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_subject_average)],
     },
     fallbacks=[CommandHandler("cancel", cancel)],
+    persistent=True,
+    name="grade_calculator_conv"
 )
 application.add_handler(conv_handler)
 application.add_handler(CommandHandler("help", help_command))
@@ -111,6 +114,20 @@ application.add_handler(CommandHandler("usage_count", overall_average_count))
 application.add_handler(CommandHandler("showUserIDs", show_user_ids))
 application.add_handler(CommandHandler("whats_new", whatsnew))
 
-# الكائن `application` هو ما سيقوم `uvicorn` بتشغيله.
-# لا حاجة لوجود `if __name__ == "__main__"`.
+# The `application` object is what uvicorn will run.
+# No `if __name__ == "__main__"` needed.
+# The database and bot objects are now accessed via the context.
+
+if __name__ == "__main__":
+    # --- التشغيل باستخدام Webhook ---
+    logger.info("--- Starting bot with webhook ---")
+    port = int(os.environ.get("PORT", 8080))
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=BOT_TOKEN,
+        webhook_url=WEBHOOK_URL,
+        on_startup=on_startup,
+        allowed_updates=Update.ALL_TYPES,
+    )
 
