@@ -29,10 +29,9 @@ def get_menu_keyboard():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """بدء البوت والتحقق من الاشتراك"""
     from error_handler import is_subscribed, CHANNELS
-    from main import db
     
     user_id = update.message.from_user.id
-    db.update_visitors(user_id)
+    context.db.update_visitors(user_id)
 
     # 🔹 التحقق من الاشتراك في جميع القنوات
     if not await is_subscribed(update, context):
@@ -45,7 +44,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             "🔹 بعد الاشتراك، اضغط على /start من جديد.",
             reply_markup=reply_markup
         )
-        return -1  # ❌ لا يمكنه المتابعة
+        return ConversationHandler.END
 
     # ✅ المستخدم مشترك في القنوات، يكمل العملية
     keyboard = [
@@ -67,9 +66,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "If you need any help, type /help. To cancel the process at any time, type /cancel.",
         reply_markup=reply_markup,
     )
-    user_data = context.user_data
-    user_data['total_grades'] = 0
-    user_data['total_coefficients'] = 0
     return SPECIALIZATION
 
 async def choose_specialization(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -108,9 +104,9 @@ async def choose_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         await update.message.reply_text(
             "الحمد لله، والصلاة والسلام على رسول الله، وعلى آله، وصحبه، أما بعد:\n\n"
             "فالموسيقى لا تجوز دراستها، ولا تدريسها للكبار، ولا للصغار، وراجع في ذلك الفتاوى ذوات الأرقام التالية: "
-            "<a href=\"https://www.islamweb.net/ar/fatwa/7932/%D9%87%D9%84-%D9%8A%D8%AC%D9%88%D8%B2-%D8%AD%D8%B6%D9%88%D8%B1-%D8%AF%D8%B1%D9%88%D8%B3-%D8%A7%D9%84%D9%85%D9%88%D8%B3%D9%8A%D9%82%D9%89-%D8%A5%D8%B0%D8%A7-%D9%8A%D9%88%D9%82%D9%81-%D8%B9%D9%84%D9%8A%D9%87%D8%A7-%D8%A7%D9%84%D8%AA%D8%AE%D8%B1%D8%AC\">7932</a>، "
-            "<a href=\"https://www.islamweb.net/ar/fatwa/73834/%D8%AD%D9%83%D9%85-%D8%A7%D9%84%D8%AF%D8%B1%D8%A7%D8%B3%D8%A9-%D9%81%D9%8A-%D9%83%D9%84%D9%8A%D9%87-%D9%85%D9%86-%D8%B6%D9%85%D9%86-%D9%85%D9%88%D8%A7%D8%AF%D9%87%D8%A7-%D9%84%D9%85%D9%88%D8%B3%D9%8A%D9%82%D9%89\">73834</a>، "
-            "<a href=\"https://www.islamweb.net/ar/fatwa/191797/%D8%AD%D8%B1%D9%85%D8%A9-%D8%A7%D9%84%D9%85%D9%88%D8%B3%D9%8A%D9%82%D9%89-%D8%AA%D8%B4%D9%85%D9%84-%D8%AF%D8%B1%D8%A7%D8%B3%D8%AA%D9%87%D8%A7%D8%8C%20%D9%88%D9%84%D8%A7,%D8%AA%D8%AE%D9%84%D9%88%20%D9%85%D9%86%20%D9%85%D8%AB%D9%84%20%D9%87%D8%B0%D9%87%20%D9%84%D9%85%D8%A7%D8%AF%D8%A9.\">المصدر</a>"
+            "<a href=\"https://www.islamweb.net/ar/fatwa/7932/\">7932</a>، "
+            "<a href=\"https://www.islamweb.net/ar/fatwa/73834/\">73834</a>، "
+            "<a href=\"https://www.islamweb.net/ar/fatwa/191797/\">المصدر</a>"
         , parse_mode='HTML')
         return ConversationHandler.END
 
@@ -129,6 +125,9 @@ async def choose_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     user_data['level'] = level
     user_data['current_subject_index'] = 0
     user_data['subject_grades'] = {}
+    user_data['total_grades'] = 0
+    user_data['total_coefficients'] = 0
+
     return await ask_for_grades(update, context)
 
 async def choose_sub_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -166,12 +165,11 @@ async def choose_sub_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def ask_for_grades(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """طلب الدرجات من المستخدم"""
-    from main import db
     user_data = context.user_data
     specialization = user_data['specialization']
     level = user_data['level']
     subjects = list(specializations[specialization][level].keys())
-    current_index = user_data['current_subject_index']
+    current_index = user_data.get('current_subject_index', 0)
 
     if current_index >= len(subjects):
         if user_data['total_coefficients'] == 0:
@@ -179,7 +177,7 @@ async def ask_for_grades(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return ConversationHandler.END
 
         average = user_data['total_grades'] / user_data['total_coefficients']
-        db.increment_overall_average_count()
+        context.db.increment_overall_average_count()
         await update.message.reply_text("<b>---------------------------------------------</b>", parse_mode='HTML')
         average = math.ceil(average * 100) / 100
         await update.message.reply_text(f"<b>Your overall average grade is: <span class=\"tg-spoiler\">{average:.2f}</span></b>", parse_mode='HTML')
@@ -191,8 +189,6 @@ async def ask_for_grades(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         await update.message.reply_text(
             "<b>Thank you for using our bot</b>\n\n"
-            "<b>Don't forget to follow us on Instagram & Facebook !!</b>\n\n"
-            "<b>If you want to use the bot again, click /start.</b>\n\n\n"
             "<b>Developed by <a href=\"https://www.instagram.com/yassine_boukerma\">Yassine Boukerma</a> with ❤️</b>",
             reply_markup=get_menu_keyboard(),
             parse_mode='HTML'
@@ -216,33 +212,9 @@ async def ask_for_grades(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             parse_mode='HTML'
         )
         return FIRST
-    elif subject in exam1_subjects:
-        await update.message.reply_text(
-            f"Please enter your exam grade for <b>{subject}</b> (coefficient: {coefficient}):",
-            parse_mode='HTML'
-        )
-        return FIRST
-    elif subject in exam2_subjects:
-        await update.message.reply_text(
-            f"Please enter your second exam grade for <b>{subject}</b> (coefficient: {coefficient}):",
-            parse_mode='HTML'
-        )
-        return SECOND
-    elif subject in tp_subjects:
-        await update.message.reply_text(
-            f"Please enter your TP grade for <b>{subject}</b> (coefficient: {coefficient}):",
-            parse_mode='HTML'
-        )
-        return TP
-    elif subject in td_subjects:
-        await update.message.reply_text(
-            f"Please enter your TD grade for <b>{subject}</b> (coefficient: {coefficient}):",
-            parse_mode='HTML'
-        )
-        return TD
     else:
         await update.message.reply_text(
-            f"Please enter your grade for <b>{subject}</b> (coefficient: {coefficient}):",
+            f"Please enter your exam grade for <b>{subject}</b> (coefficient: {coefficient}):",
             parse_mode='HTML'
         )
         return FIRST
@@ -260,7 +232,7 @@ async def receive_first_grade(update: Update, context: ContextTypes.DEFAULT_TYPE
     specialization = user_data['specialization']
     level = user_data['level']
     subjects = list(specializations[specialization][level].keys())
-    current_index = user_data['current_subject_index']
+    current_index = user_data.get('current_subject_index', 0)
     subject = subjects[current_index]
     
     if subject in exam1_subjects and subject in exam2_subjects:
@@ -269,9 +241,11 @@ async def receive_first_grade(update: Update, context: ContextTypes.DEFAULT_TYPE
         return SECOND
     else:
         coefficient = specializations[specialization][level][subject]
+        user_data.setdefault('total_grades', 0)
+        user_data.setdefault('total_coefficients', 0)
         user_data['total_grades'] += grade * coefficient
         user_data['total_coefficients'] += coefficient
-        user_data['current_subject_index'] += 1
+        user_data['current_subject_index'] = current_index + 1
         return await ask_for_grades(update, context)
 
 async def receive_second_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -290,21 +264,23 @@ async def receive_second_grade(update: Update, context: ContextTypes.DEFAULT_TYP
     specialization = user_data['specialization']
     level = user_data['level']
     subjects = list(specializations[specialization][level].keys())
-    current_index = user_data['current_subject_index']
+    current_index = user_data.get('current_subject_index', 0)
     subject = subjects[current_index]
     coefficient = specializations[specialization][level][subject]
     
+    user_data.setdefault('total_grades', 0)
+    user_data.setdefault('total_coefficients', 0)
     user_data['total_grades'] += average * coefficient
     user_data['total_coefficients'] += coefficient
-    user_data['current_subject_index'] += 1
+    user_data['current_subject_index'] = current_index + 1
     
     return await ask_for_grades(update, context)
 
 async def receive_tp_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """استقبال درجة TP"""
+    # This logic seems incomplete, assuming a simple addition for now
     user_data = context.user_data
     grade_text = update.message.text
-    
     if not validate_grade(grade_text):
         await update.message.reply_text("Please enter a valid grade between 0 and 20.")
         return TP
@@ -313,21 +289,23 @@ async def receive_tp_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     specialization = user_data['specialization']
     level = user_data['level']
     subjects = list(specializations[specialization][level].keys())
-    current_index = user_data['current_subject_index']
+    current_index = user_data.get('current_subject_index', 0)
     subject = subjects[current_index]
     coefficient = specializations[specialization][level][subject]
     
+    user_data.setdefault('total_grades', 0)
+    user_data.setdefault('total_coefficients', 0)
     user_data['total_grades'] += grade * coefficient
     user_data['total_coefficients'] += coefficient
-    user_data['current_subject_index'] += 1
+    user_data['current_subject_index'] = current_index + 1
     
     return await ask_for_grades(update, context)
 
 async def receive_td_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """استقبال درجة TD"""
+    # This logic seems incomplete, assuming a simple addition for now
     user_data = context.user_data
     grade_text = update.message.text
-    
     if not validate_grade(grade_text):
         await update.message.reply_text("Please enter a valid grade between 0 and 20.")
         return TD
@@ -336,18 +314,20 @@ async def receive_td_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     specialization = user_data['specialization']
     level = user_data['level']
     subjects = list(specializations[specialization][level].keys())
-    current_index = user_data['current_subject_index']
+    current_index = user_data.get('current_subject_index', 0)
     subject = subjects[current_index]
     coefficient = specializations[specialization][level][subject]
     
+    user_data.setdefault('total_grades', 0)
+    user_data.setdefault('total_coefficients', 0)
     user_data['total_grades'] += grade * coefficient
     user_data['total_coefficients'] += coefficient
-    user_data['current_subject_index'] += 1
+    user_data['current_subject_index'] = current_index + 1
     
     return await ask_for_grades(update, context)
 
-async def calculate_subject_average(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """حساب متوسط المادة"""
+async def receive_subject_average(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """استقبال متوسط المادة"""
     user_data = context.user_data
     grade_text = update.message.text
     
@@ -359,19 +339,17 @@ async def calculate_subject_average(update: Update, context: ContextTypes.DEFAUL
     specialization = user_data['specialization']
     level = user_data['level']
     subjects = list(specializations[specialization][level].keys())
-    current_index = user_data['current_subject_index']
+    current_index = user_data.get('current_subject_index', 0)
     subject = subjects[current_index]
     coefficient = specializations[specialization][level][subject]
     
+    user_data.setdefault('total_grades', 0)
+    user_data.setdefault('total_coefficients', 0)
     user_data['total_grades'] += grade * coefficient
     user_data['total_coefficients'] += coefficient
-    user_data['current_subject_index'] += 1
+    user_data['current_subject_index'] = current_index + 1
     
     return await ask_for_grades(update, context)
-
-async def receive_subject_average(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """استقبال متوسط المادة"""
-    return await calculate_subject_average(update, context)
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """إلغاء العملية"""
