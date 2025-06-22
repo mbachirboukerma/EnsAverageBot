@@ -1,5 +1,5 @@
 from telegram import Bot
-from telegram.error import TimedOut, Unauthorized as TelegramUnauthorized, ChatMigrated
+from telegram.error import TimedOut, Forbidden, ChatMigrated
 from retrying import retry
 import logging
 import time
@@ -29,7 +29,7 @@ def send_message(bot: Bot, chat_id: int, text: str, db: Database, retries: int =
             logging.info(f"✅ تم إرسال الرسالة إلى المستخدم {chat_id}")
             return  # تم الإرسال بنجاح، نخرج من الدالة
 
-        except TelegramUnauthorized:
+        except Forbidden:
             logging.warning(f"User {chat_id} blocked the bot. Removing from database.")
             db.remove_user_from_database(chat_id)
             return  # لا داعي لإعادة المحاولة
