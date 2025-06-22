@@ -1,10 +1,13 @@
 import logging
 import os
+import asyncio
 import threading
-import time
 from flask import Flask, request
 from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext, ConversationHandler
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, filters, 
+    ConversationHandler, ContextTypes
+)
 from database import Database
 from error_handler import send_message, notify_users, is_subscribed
 from grade_calculator import (
@@ -55,9 +58,8 @@ MESSAGE_AR_whatsnew = (
 )
 
 # دوال مساعدة بسيطة
-
-def help_command(update, context):
-    update.message.reply_text(
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
         "📚 <b>Here are the instructions: 21032025</b>\n\n"
         "1. Click <b>/start</b> to begin using the bot.\n"
         "2. Follow the prompts to enter your grades.\n"
@@ -75,33 +77,33 @@ def help_command(update, context):
         parse_mode='HTML'
     )
 
-def visitor_count(update, context):
+async def visitor_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
     if db:
         count = db.get_visitor_count()
-        update.message.reply_text(f"The bot has been visited by {count + 600} unique users.")
+        await update.message.reply_text(f"The bot has been visited by {count + 600} unique users.")
     else:
-        update.message.reply_text("Database not available.")
+        await update.message.reply_text("Database not available.")
 
-def overall_average_count(update, context):
+async def overall_average_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
     if db:
         count = db.get_overall_average_count()
-        update.message.reply_text(f"The Bot has been used {count + 1530} times.")
+        await update.message.reply_text(f"The Bot has been used {count + 1530} times.")
     else:
-        update.message.reply_text("Database not available.")
+        await update.message.reply_text("Database not available.")
 
-def show_user_ids(update, context):
+async def show_user_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global db
     if db:
         user_ids = db.get_all_user_ids()
-        update.message.reply_text(f"Collected user IDs: {', '.join(map(str, user_ids))}")
+        await update.message.reply_text(f"Collected user IDs: {', '.join(map(str, user_ids))}")
     else:
-        update.message.reply_text("Database not available.")
+        await update.message.reply_text("Database not available.")
 
-def whatsnew(update, context):
-    update.message.reply_text(MESSAGE_whatsnew, parse_mode='HTML')
-    update.message.reply_text(MESSAGE_AR_whatsnew, parse_mode='HTML')
+async def whatsnew(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(MESSAGE_whatsnew, parse_mode='HTML')
+    await update.message.reply_text(MESSAGE_AR_whatsnew, parse_mode='HTML')
 
 # إعدادات البوت و webhook
 BOT_TOKEN = "7163691593:AAFmVnHxBgH4ORZ9ohTC9QQpiDmKjWTaMEI"
@@ -112,19 +114,18 @@ WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{WEBHOOK_URL_PATH}"
 app = Flask(__name__)
 bot = Bot(token=BOT_TOKEN)
 
-# إنشاء متغير عام للـ updater
-updater = None
+# إنشاء متغير عام للـ application
+application = None
 
-def main():
-    global db, updater
+async def main():
+    global db, application
     try:
         # تهيئة قاعدة البيانات
         db = Database(DB_PATH)
         logging.info("Database initialized successfully")
 
-        # إنشاء Updater
-        updater = Updater(token=BOT_TOKEN, use_context=True)
-        dispatcher = updater.dispatcher
+        # إنشاء Application
+        application = Application.builder().token(BOT_TOKEN).build()
 
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler('start', lambda update, context: start(update, context, db))],
@@ -140,21 +141,21 @@ def main():
             },
             fallbacks=[CommandHandler('cancel', cancel)]
         )
-        dispatcher.add_handler(conv_handler)
-        dispatcher.add_handler(CommandHandler("help", help_command))
-        dispatcher.add_handler(CommandHandler("visitor_count", visitor_count))
-        dispatcher.add_handler(CommandHandler("usage_count", overall_average_count))
-        dispatcher.add_handler(CommandHandler("showUserIDs", show_user_ids))
-        dispatcher.add_handler(CommandHandler("whats_new", whatsnew))
+        application.add_handler(conv_handler)
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("visitor_count", visitor_count))
+        application.add_handler(CommandHandler("usage_count", overall_average_count))
+        application.add_handler(CommandHandler("showUserIDs", show_user_ids))
+        application.add_handler(CommandHandler("whats_new", whatsnew))
 
         # تعيين webhook
-        bot.set_webhook(url=WEBHOOK_URL)
+        await bot.set_webhook(url=WEBHOOK_URL)
         logging.info(f"Webhook set to: {WEBHOOK_URL}")
         
         # إرسال رسالة نجاح التشغيل
         ADMIN_ID = 5909420341
         try:
-            bot.send_message(chat_id=ADMIN_ID, text="✅ Bot has started successfully on Cloud Run!")
+            await bot.send_message(chat_id=ADMIN_ID, text="✅ Bot has started successfully on Cloud Run!")
         except Exception as e:
             logging.warning(f"Failed to send startup message: {e}")
             
@@ -163,11 +164,11 @@ def main():
         raise
 
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
-def webhook():
+async def webhook():
     try:
         update = Update.de_json(request.get_json(force=True), bot)
-        if updater:
-            updater.dispatcher.process_update(update)
+        if application:
+            await application.process_update(update)
         return 'ok'
     except Exception as e:
         logging.error(f"Error in webhook: {e}")
@@ -181,7 +182,16 @@ def index():
 def health():
     return 'OK', 200
 
+def run_bot():
+    """تشغيل البوت في thread منفصل"""
+    asyncio.run(main())
+
 if __name__ == '__main__':
-    main()
+    # تشغيل البوت في thread منفصل
+    bot_thread = threading.Thread(target=run_bot)
+    bot_thread.daemon = True
+    bot_thread.start()
+    
+    # تشغيل Flask
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
 
