@@ -1,10 +1,11 @@
 from telegram import Bot
-from telegram.error import TimedOut, Unauthorized, ChatMigrated
+from telegram.error import TimedOut, Forbidden, ChatMigrated
 from retrying import retry
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from database import Database
+import asyncio
 
 # قائمة القنوات المطلوبة للاشتراك
 CHANNELS = ["@infotouchcommunity", "@hqlaptop"]
@@ -21,37 +22,37 @@ MESSAGE = (
     "وصلِّ اللهم وسلِّم وبارك على سيدنا محمد وعلى آله وصحبه أجمعين ﷺ."
 )
 
-def send_message(bot: Bot, chat_id: int, text: str, db: Database, retries: int = 3):
+async def send_message(bot: Bot, chat_id: int, text: str, db: Database, retries: int = 3):
     """إرسال رسالة مع إعادة المحاولة عند حدوث أخطاء"""
     for attempt in range(retries):
         try:
-            bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
+            await bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
             logging.info(f"✅ تم إرسال الرسالة إلى المستخدم {chat_id}")
             return  # تم الإرسال بنجاح، نخرج من الدالة
 
-        except Unauthorized:
+        except Forbidden:
             logging.warning(f"User {chat_id} blocked the bot. Removing from database.")
             db.remove_user_from_database(chat_id)
             return  # لا داعي لإعادة المحاولة
 
         except TimedOut:
             logging.warning(f"Timeout error while sending message to {chat_id}. Retrying...")
-            time.sleep(2)  # انتظار ثم إعادة المحاولة
+            await asyncio.sleep(2)  # انتظار ثم إعادة المحاولة
 
         except ChatMigrated as e:
             new_chat_id = e.new_chat_id
             logging.warning(f"Chat ID {chat_id} has migrated to {new_chat_id}. Updating database.")
             # db.update_chat_id(chat_id, new_chat_id)  # تحديث معرف الدردشة
-            send_message(bot, new_chat_id, text, db)  # إعادة الإرسال للمعرف الجديد
+            await send_message(bot, new_chat_id, text, db)  # إعادة الإرسال للمعرف الجديد
             return
 
         except Exception as e:
             logging.error(f"Failed to send message to {chat_id} on attempt {attempt+1}: {e}")
-            time.sleep(2)  # انتظار قبل إعادة المحاولة
+            await asyncio.sleep(2)  # انتظار قبل إعادة المحاولة
 
     logging.error(f"Giving up on sending message to {chat_id} after {retries} retries.")
 
-def notify_users(bot: Bot, db: Database):
+async def notify_users(bot: Bot, db: Database):
     """إرسال إشعارات لجميع المستخدمين"""
     user_ids = db.get_all_user_ids()
     batch_size = 50
@@ -60,17 +61,18 @@ def notify_users(bot: Bot, db: Database):
         batch = user_ids[i:i+batch_size]
         logging.info(f"📤 إرسال دفعة المستخدمين من {i+1} إلى {i+len(batch)}")
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            executor.map(lambda uid: send_message(bot, uid, MESSAGE, db), batch)
+        # استخدام asyncio.gather بدلاً من ThreadPoolExecutor
+        tasks = [send_message(bot, uid, MESSAGE, db) for uid in batch]
+        await asyncio.gather(*tasks, return_exceptions=True)
 
-        time.sleep(3)  # تأخير 3 ثواني بين كل دفعة
+        await asyncio.sleep(3)  # تأخير 3 ثواني بين كل دفعة
 
-def is_subscribed(update, context) -> bool:
+async def is_subscribed(update, context) -> bool:
     """التحقق من اشتراك المستخدم في القنوات المطلوبة"""
     user_id = update.message.from_user.id
     try:
         for channel in CHANNELS:
-            chat_member = context.bot.get_chat_member(channel, user_id)
+            chat_member = await context.bot.get_chat_member(channel, user_id)
             if chat_member.status not in ["member", "administrator", "creator"]:
                 return False  # ❌ إذا لم يكن مشتركًا في إحدى القنوات، نعيد False
         return True  # ✅ المستخدم مشترك في جميع القنوات
