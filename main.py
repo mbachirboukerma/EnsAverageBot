@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 # 2. تعريف الثوابت
 SPECIALIZATION, LEVEL, SUB_LEVEL, FIRST, SECOND, TP, TD, NEXT_SUBJECT = range(8)
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "7163691593:AAFmVnHxBgH4ORZ9ohTC9QQpiDmKjWTaMEI")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "7202093679:AAE_xjF5I1RvlWRAee8rWv2fB73zyFfYmFs")
 WEBHOOK_HOST = os.environ.get("WEBHOOK_HOST", "ens-average-bot-599688285140.europe-west1.run.app")
 WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{BOT_TOKEN}"
 
